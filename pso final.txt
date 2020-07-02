@@ -1,22 +1,48 @@
-// you can schedule a demo with me: write to w.tarnawski@tutanota.com
-// to reproduce: make a sheet like this one https://docs.google.com/spreadsheets/d/1WqzUJ8H5o1K35ka7ZV6TavEgkF-SEt7yEODGKK0PC3w/ on your drive (File > Make a copy is sufficient) and run the "fit" function (you will be asked to provide the access
-// I can't make this available for you because of the google security issues (you must grant the access for the script editor)
+//Load the input data
+
+var [ss, s] = setActiveSpreadsheetAndSheet(
+  ss_url = SpreadsheetApp.getActive().getUrl(),
+  s_name = 'Sheet1'
+  )
+
+real_data_x_raw = s.getRange('A3:A10').getValues()
+real_data_y_raw = s.getRange('B3:B10').getValues()
+
+// method fit() will output to these ranges
+A_output = s.getRange('B13')
+n_output = s.getRange('B14')
+B_output = s.getRange('B15')
+
+
+
+// CONFIG
+
+// limit the exploratory capabilities of the swarm
+limits_object = compose_limits_object(
+  [
+    [-20,20,-10,10],
+    [-20,20,-10,10],
+    [-20,20,-10,10]
+  ]
+)
+
+// END CONFIG
 
 
 var gbest = {}
 
-function setActiveSpreadsheetAndSheetByNames(ss_url,s_name){
-  
+function setActiveSpreadsheetAndSheet(ss_url,s_name){
+
   SpreadsheetApp.setActiveSpreadsheet(SpreadsheetApp.openByUrl(ss_url))
   var active_ss = SpreadsheetApp.getActiveSpreadsheet()
   active_ss.setActiveSheet(active_ss.getSheetByName(s_name)).activate()
   var active_s = active_ss.getActiveSheet()
   return [active_ss, active_s]
-  
+
 }
 
 function Particle(position,velocities){
-  
+
   particle = {}
   particle.position = position
   particle.velocities = velocities
@@ -25,11 +51,11 @@ function Particle(position,velocities){
   particle.pbest.position = position
   particle.pbest.cost = undefined
   return particle
-  
+
 }
 
 function initialize_swarm(limits_object,number_of_particles){
-  
+
   //    initialize empty particles array
   swarm = {}
   swarm.particles = []
@@ -66,14 +92,14 @@ function test_initialize_swarm(){
       [-5,5,-1,1],
       [-5,5,-1,1]
       ]),
-    number_of_particles = 20  
+    number_of_particles = 20
   )
   )
 }
 
 
 function compose_limits_object(input){
-  //  input: every row corresponds to a single dimension. For 3 dimensions, where position is between -5 and 5 and velocity is between -1 and 1, input would be: 
+  //  input: every row corresponds to a single dimension. For 3 dimensions, where position is between -5 and 5 and velocity is between -1 and 1, input would be:
   //    [
   //      [-5,5,-1,1],
   //      [-5,5,-1,1],
@@ -114,28 +140,28 @@ function evaluate_particle_cost(real_data_x, real_data_y, particle){
   for each (x in real_data_x){
     predicted_y.push(
       A*Math.pow(x,n) + B
-    ) 
+    )
   }
-  
+
   particle.cost  = 0
   for (point = 0; point < real_data_x.length; point++){
     error = predicted_y[point]-real_data_y[point]
-//    particle.cost += Math.abs(error)
     particle.cost += Math.pow(error,2)
+    //    additional penalty for returning the infeasible data (retention can't go below 0)
     if (predicted_y[point] < 0) {
       particle.cost*=1.3
     }
   }
-  
+
   return particle.cost
-  
+
 }
 
 //function test_evaluate_particle_cost(){
 //  part = Particle([0.2, -0.5, 1],[0,0,0])
 //  Logger.log(part)
-//  evaluate_particle_cost(real_data_x = [0.000001,1,7,14,30,90], 
-//                         real_data_y = [1,0.4,0.1,0.5,0.3,0.1], 
+//  evaluate_particle_cost(real_data_x = [0.000001,1,7,14,30,90],
+//                         real_data_y = [1,0.4,0.1,0.5,0.3,0.1],
 //                         particle=part)
 //  Logger.log(part)
 //}
@@ -143,81 +169,65 @@ function evaluate_particle_cost(real_data_x, real_data_y, particle){
 
 function update_particle_position(gbest,particle,limits_object){
   for (dimension = 0; dimension < particle.position.length; dimension++){
-    
+
     particle.velocities[dimension] = 0.73 * particle.velocities[dimension] + 2 * Math.random() * (particle.pbest.position[dimension] - particle.position[dimension]) + 2 * Math.random() * (gbest.position[dimension] - particle.position[dimension])
     particle.velocities[dimension] = Math.max(limits_object.velocities.lower_limit[dimension] , Math.min(limits_object.velocities.upper_limit[dimension], particle.velocities[dimension]))
-    particle.position[dimension] += particle.velocities[dimension]    
+    particle.position[dimension] += particle.velocities[dimension]
     particle.position[dimension] = Math.max(limits_object.position.lower_limit[dimension] , Math.min(limits_object.position.upper_limit[dimension], particle.position[dimension]))
   }
 }
 
 
 
-
-
-
-
-
-
-
-
 function fit(){
   var gbest_cost_history = []
-  var [ss, s] = setActiveSpreadsheetAndSheetByNames(ss_url = SpreadsheetApp.getActive().getUrl(),s_name = 'Sheet1')
-  
-//  prepare input ranges to be Arrays
-  real_data_x_raw = s.getRange('A3:A10').getValues()
+
+  //  prepare input ranges to be Arrays
   real_data_x = []
-    for each (data_point in real_data_x_raw){
-      real_data_x.push(data_point[0])
-    }  
-  
-  real_data_y_raw = s.getRange('B3:B10').getValues()  
-  real_data_y = []  
+  for each (data_point in real_data_x_raw){
+    real_data_x.push(data_point[0])
+  }
+
+  real_data_y = []
   for each (data_point in real_data_y_raw){
     real_data_y.push(data_point[0])
   }
-  
-  limits_object = compose_limits_object(
-    [
-    [-20,20,-10,10],
-    [-20,20,-10,10],
-    [-20,20,-10,10]
-    ])
-  
+
+
+
   Swarm = initialize_swarm(
     limits_object = limits_object,
     number_of_particles = 100
-    )
-    
-    // calculate particles cost and set best particle as gbest
-    
-    one_time_gbest_set = true
-    for each (particle in swarm.particles){
-      evaluate_particle_cost(
-        real_data_x = real_data_x, 
-        real_data_y = real_data_y, 
-        particle = particle)
-        Logger.log(  particle.position)
-      particle.pbest.position = particle.position
-      particle.pbest.cost = particle.cost
-      if (one_time_gbest_set){
-      gbest = Swarm.particles[0].pbest 
-      one_time_gbest_set = false
-      }
+  )
 
-      if (particle.pbest.cost <= gbest.cost)
-      {
-        gbest = JSON.parse(JSON.stringify(particle.pbest))
-      }
+  // calculate particles cost and set best particle as gbest
+
+  one_time_gbest_set = true
+  for each (particle in swarm.particles){
+    evaluate_particle_cost(
+      real_data_x = real_data_x,
+      real_data_y = real_data_y,
+      particle = particle)
+    Logger.log(  particle.position)
+    particle.pbest.position = particle.position
+    particle.pbest.cost = particle.cost
+    if (one_time_gbest_set){
+      gbest = Swarm.particles[0].pbest
+      one_time_gbest_set = false
     }
-  
-  
-  
+
+    if (particle.pbest.cost <= gbest.cost)
+    {
+      gbest = JSON.parse(JSON.stringify(particle.pbest))
+    }
+  }
+
+
+
   //  begin iterating
   iteration = 1
   while(iteration <=200){
-    
+
     for each (particle in Swarm.particles){
       update_particle_position(
         gbest = gbest,
@@ -225,18 +235,18 @@ function fit(){
         limits_object = limits_object
       )
       evaluate_particle_cost(
-          real_data_x = real_data_x, 
-          real_data_y = real_data_y, 
-          particle = particle) 
+        real_data_x = real_data_x,
+        real_data_y = real_data_y,
+        particle = particle)
       if (particle.cost < particle.pbest.cost)
       {
         particle.pbest.position = JSON.parse(JSON.stringify(particle.position))
         particle.pbest.cost = JSON.parse(JSON.stringify(particle.cost))
-      } 
+      }
       if (particle.pbest.cost < gbest.cost)
       {
         gbest = JSON.parse(JSON.stringify(particle.pbest))
-      } 
+      }
     }
     Logger.log("Iteration")
     Logger.log(iteration)
@@ -244,25 +254,24 @@ function fit(){
     Logger.log(gbest.position)
     Logger.log(gbest.cost)
     gbest_cost_history.push(gbest.cost)
-    
+
     iteration++
   }
-      Logger.log("Finished")  
-    Logger.log(gbest_cost_history)
-      Logger.log("Found:")
-      Logger.log(gbest.position)
-      s.getRange('B13').setValue(gbest.position[0])
-      s.getRange('B14').setValue(gbest.position[1])
-      s.getRange('B15').setValue(gbest.position[2])
-  return gbest.position        
+  Logger.log("Finished")
+  Logger.log(gbest_cost_history)
+  Logger.log("Found:")
+  Logger.log(gbest.position)
+  A_output.setValue(gbest.position[0])
+  n_output.setValue(gbest.position[1])
+  B_output.setValue(gbest.position[2])
 }
-  
-function calculate_convergence(Swarm){
-  dimensions = {}
-  for each (particle in Swarm.particles){
-    dimensions
-  }
-}
+
+//function calculate_convergence(Swarm){
+//  dimensions = {}
+//  for each (particle in Swarm.particles){
+//    dimensions
+//  }
+//}
 
 //for each particle i = 1, ..., S do
 //   Initialize the particle's position with a uniformly distributed random vector: xi ~ U(blo, bup)
