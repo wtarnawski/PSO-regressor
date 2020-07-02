@@ -1,6 +1,6 @@
 // you can schedule a demo with me: write to w.tarnawski@tutanota.com
-// to reproduce: make a sheet like this one https://docs.google.com/spreadsheets/d/1WqzUJ8H5o1K35ka7ZV6TavEgkF-SEt7yEODGKK0PC3w/ and run the "fit" function
-// I can't make this available because of google security issues
+// to reproduce: make a sheet like this one https://docs.google.com/spreadsheets/d/1WqzUJ8H5o1K35ka7ZV6TavEgkF-SEt7yEODGKK0PC3w/ on your drive (File > Make a copy is sufficient) and run the "fit" function (you will be asked to provide the access
+// I can't make this available for you because of the google security issues (you must grant the access for the script editor)
 
 
 var gbest = {}
